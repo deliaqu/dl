@@ -11,12 +11,14 @@ class Encoder(torch.nn.Module):
     self.embedding_layer = torch.nn.Embedding.from_pretrained(embeddings)
     self.embedding_layer.weight.requires_grad = True
 
-    self.rnn = torch.nn.RNN(embedding_dim, hidden_dim)
+    self.rnn = torch.nn.RNN(embedding_dim, hidden_dim, batch_first=True)
     self.dropout = torch.nn.Dropout(drop_out_prob)
     self.linear = torch.nn.Linear(hidden_dim, output_dim)
-    self.activation = torch.nn.Relu()
+    self.activation = torch.nn.Sigmoid()
 
   def forward(self, inputs):
-    embedding = self.embedding_layer(inputs)
-    _, hidden = self.rnn(embedding)
-    return self.activation(self.linear(hidden))
+    x = self.embedding_layer(inputs)
+    x = self.activation(x)
+    _, hidden = self.rnn(x)
+    x = self.activation(hidden)
+    return self.activation(self.linear(x))

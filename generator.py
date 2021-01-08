@@ -7,26 +7,27 @@ class Generator(torch.nn.Module):
 
   def __init__(self, embeddings, hidden_dim, drop_out_prob):
     super(Generator, self).__init__()
-    vocab_size, embedding_dim = embeddings.shape
-    self.embedding_layer = torch.nn.Embedding(vocab_size, embedding_dim)
-    self.embedding_layer.weight.data = torch.from_numpy(embeddings)
+    embedding_dim = embeddings.shape[1]
+    self.embedding_layer = torch.nn.Embedding.from_pretrained(embeddings)
     self.embedding_layer.weight.requires_grad = False
 
-    self.rnn = torch.nn.RNN(embedding_dim, hidden_dim, bidirectional=True)
+    self.rnn = torch.nn.RNN(embedding_dim, hidden_dim, bidirectional=True, batch_first=True)
     self.dropout = torch.nn.Dropout(drop_out_prob)
     self.linear = torch.nn.Linear(2 * hidden_dim, 1)
-    self.activation = torch.nn.Relu()
+    self.activation = torch.nn.ReLU()
 
   def forward(self, inputs):
-    embedding = self.embedding_layer(inputs)
-    out, _ = self.rnn(embedding)
-    return self.activation(self.linear(self.dropout(out)))
+    x = self.embedding_layer(inputs)
+    x = self.activation(x)
+    out, _ = self.rnn(x)
+    return self.activation(self.linear(self.activation(out)))
 
   def select(self, logits):
-    out = (logits > 0).float()
+    out = (logits > 0).long()
     return out
 
   def loss(self, selection, inputs):
+    selection = selection.float()
     selection_cost = torch.mean(torch.sum(selection, dim=1))
     l_padded_mask = torch.cat([selection[:, 0].unsqueeze(1), selection], dim=1)
     r_padded_mask = torch.cat([selection, selection[:, -1].unsqueeze(1)], dim=1)
